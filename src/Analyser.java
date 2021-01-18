@@ -381,7 +381,7 @@ public final class Analyser {
 
         //弹栈
         while (!op.empty())
-            MyFunctions.operatorInstructions(op.pop(), instructions, funcType);
+            operatorInstructions(op.pop(), instructions, funcType);
 
         //如果前面的计算值非0则跳转
         instructions.add(new Instruction("br.true", 1));
@@ -448,7 +448,7 @@ public final class Analyser {
 
         //弹栈
         while (!op.empty())
-            MyFunctions.operatorInstructions(op.pop(), instructions, type);
+            operatorInstructions(op.pop(), instructions, type);
 
         instructions.add(new Instruction("br.true", 1));
         Instruction jump = new Instruction("br", 0);
@@ -484,7 +484,7 @@ public final class Analyser {
 
             type = analyseExpr();
             while (!op.empty())
-                MyFunctions.operatorInstructions(op.pop(), instructions, type);
+                operatorInstructions(op.pop(), instructions, type);
 
             instructions.add(new Instruction("store.64", null));
         }
@@ -504,7 +504,7 @@ public final class Analyser {
         retFunction = analFunction;
 
         while (!op.empty())
-            MyFunctions.operatorInstructions(op.pop(), instructions, type);
+            operatorInstructions(op.pop(), instructions, type);
         //ret
         instructions.add(new Instruction("ret", null));
     }
@@ -521,7 +521,7 @@ public final class Analyser {
         String exprType = analyseExpr();
         //弹栈
         while (!op.empty())
-            MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
+            operatorInstructions(op.pop(), instructions, exprType);
         expect(TokenType.SEMICOLON);
     }
 
@@ -712,7 +712,7 @@ public final class Analyser {
         String exprType = analyseExpr();
         //弹栈
         while (!op.empty())
-            MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
+            operatorInstructions(op.pop(), instructions, exprType);
 
         //设置该符号为已赋值
         if (!l_Symbol.getType().equals(exprType)){
@@ -736,7 +736,7 @@ public final class Analyser {
             if(!symbol.getType().equals("function"))
                 throw new Exception();
             //如果是函数
-            int id = MyFunctions.getFunctionId(symbol.getName(), functionTable);
+            int id = getFunctionId(symbol.getName(), functionTable);
             instruction = new Instruction("call", id + 1);
         }
 
@@ -745,7 +745,7 @@ public final class Analyser {
         //将左括号入运算符栈
         op.push(TokenType.L_PAREN);
 
-        if (MyFunctions.functionHasReturn(name, functionTable))
+        if (functionHasReturn(name, functionTable))
             instructions.add(new Instruction("stackalloc", 1));
         else
             instructions.add(new Instruction("stackalloc", 0));
@@ -776,7 +776,7 @@ public final class Analyser {
         //如果对应位置的参数类型不匹配，则报错
         String type = analyseExpr();
         while (!op.empty() && op.peek() != TokenType.L_PAREN)
-            MyFunctions.operatorInstructions(op.pop(), instructions, type);
+            operatorInstructions(op.pop(), instructions, type);
 
 //        for (i = 0; i<paramNum; i++){
 //            if(!params.get(i).getType().equals(type))
@@ -790,7 +790,7 @@ public final class Analyser {
             //如果对应位置的参数类型不匹配，则报错
             type = analyseExpr();
             while (!op.empty() && op.peek() != TokenType.L_PAREN)
-                MyFunctions.operatorInstructions(op.pop(), instructions, type);
+                operatorInstructions(op.pop(), instructions, type);
             i++;
         }
         //如果参数个数不匹配，则报错
@@ -826,7 +826,7 @@ public final class Analyser {
 
         //弹栈
         while (op.peek() != TokenType.L_PAREN)
-            MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
+            operatorInstructions(op.pop(), instructions, exprType);
 
         //弹出左括号
         op.pop();
@@ -921,7 +921,7 @@ public final class Analyser {
             int in = Operator.getOrder(op.peek());
             int out = Operator.getOrder(token.getTokenType());
             if (Operator.priority[in][out] > 0)
-                MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
+                operatorInstructions(op.pop(), instructions, exprType);
         }
         op.push(token.getTokenType());
 
@@ -995,7 +995,7 @@ public final class Analyser {
 
             //将运算符弹栈并计算
             while (!op.empty())
-                MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
+                operatorInstructions(op.pop(), instructions, exprType);
 
             //将值存入
             instruction = new Instruction("store.64", null);
@@ -1058,7 +1058,7 @@ public final class Analyser {
         exprType = analyseExpr();
         //将运算符弹栈并计算
         while (!op.empty())
-            MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
+            operatorInstructions(op.pop(), instructions, exprType);
 
         //将值存入
         instruction = new Instruction("store.64", null);
@@ -1106,6 +1106,148 @@ public final class Analyser {
         if (searchSymbolNumByName(name) == -1)
             throw new Exception();
         symbolTable.get(searchSymbolNumByName(name)).setInitialized(true);
+    }
+
+    public boolean functionHasReturn(String name, List<Function> functionTable) {
+        //如果是库函数
+        if (name.equals("getint") || name.equals("getdouble") || name.equals("getchar"))
+            return true;
+        //如果是自定义函数
+        for (Function function : functionTable) {
+            if (function.getName().equals(name)) {
+                if (function.getRetType() == 1) return true;
+            }
+        }
+        return false;
+    }
+
+    public int getFunctionId(String name, List<Function> functionTable){
+//        for (int i=0 ; i<functionTable.size(); i++) {
+//            if (functionTable.get(i).getName().equals(name)) return i;
+//        }
+//        return -1;
+        for (Function function : functionTable) {
+            if (function.getName().equals(name)) return function.getId();
+        }
+        return -1;
+    }
+
+    public static void operatorInstructions(TokenType calculate, List<Instruction> instructions, String type) throws Exception{
+        Instruction instruction;
+        switch (calculate) {
+            case PLUS:
+                if(type.equals("int"))
+                    instruction = new Instruction("add.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("add.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+                break;
+            case MINUS:
+                if(type.equals("int"))
+                    instruction = new Instruction("sub.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("sub.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+                break;
+            case MUL:
+                if(type.equals("int"))
+                    instruction = new Instruction("mul.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("mul.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+                break;
+            case DIV:
+                if(type.equals("int"))
+                    instruction = new Instruction("div.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("div.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+                break;
+            case EQ:
+                if(type.equals("int"))
+                    instruction = new Instruction("cmp.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("cmp.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+
+                instruction = new Instruction("not", null);
+                instructions.add(instruction);
+                break;
+            case NEQ:
+                if(type.equals("int"))
+                    instruction = new Instruction("cmp.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("cmp.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+                break;
+            case LT:
+                if(type.equals("int"))
+                    instruction = new Instruction("cmp.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("cmp.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+
+                instruction = new Instruction("set.lt", null);
+                instructions.add(instruction);
+                break;
+            case GT:
+                if(type.equals("int"))
+                    instruction = new Instruction("cmp.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("cmp.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+
+                instruction = new Instruction("set.gt", null);
+                instructions.add(instruction);
+                break;
+            case LE:
+                if(type.equals("int"))
+                    instruction = new Instruction("cmp.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("cmp.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+
+                instruction = new Instruction("set.gt", null);
+                instructions.add(instruction);
+                instruction = new Instruction("not", null);
+                instructions.add(instruction);
+                break;
+            case GE:
+                if(type.equals("int"))
+                    instruction = new Instruction("cmp.i", null);
+                else if(type.equals("double"))
+                    instruction = new Instruction("cmp.f", null);
+                else
+                    throw new Exception();
+                instructions.add(instruction);
+
+                instruction = new Instruction("set.lt", null);
+                instructions.add(instruction);
+                instruction = new Instruction("not", null);
+                instructions.add(instruction);
+                break;
+            default:
+                break;
+        }
+
     }
 
     public Function get_start() {
@@ -1235,4 +1377,6 @@ public final class Analyser {
     public Analyser(Tokenizer tokenizer) {
         this.tokenizer = tokenizer;
     }
+
+
 }
