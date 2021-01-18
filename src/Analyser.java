@@ -119,33 +119,27 @@ public final class Analyser {
     private Symbol addSymbol (Symbol symbol) throws Exception {
         Token token = new Token(TokenType.None, symbol.getName(), null, null);
         int floor = symbol.getFloor();
-        //判断在符号表里有没有与当前符号相同的名字
+        //找相同的
         int symbol1 = searchSymbolNum(String.valueOf(token.getValue()));
         //如果没有一样的名字
-        if(symbol1 == -1){
-            this.symbolTable.add(symbol);
-        }
-        //如果有相同名字
-        else{
+        if (symbol1 != -1) {
             //获取进行比较
             symbol = symbolTable.get(symbol1);
             //如果他们层数一样，则冲突
-            if(symbol.getFloor() == floor)
+            if (symbol.getFloor() == floor)
                 throw new Exception();
             //如果层数不一样则加入符号表
-            this.symbolTable.add(symbol);
         }
+        this.symbolTable.add(symbol);
         return symbolTable.get(symbolTable.size()-1);
     }
 
     private int searchSymbolNumByName(String name){
-        //在符号表里查找
+        //查找
         for(int i=0; i<symbolTable.size(); i++){
-            //如果遇到名字相同的则返回位置
             if(symbolTable.get(i).getName().equals(name))
                 return i;
         }
-        //符号表里没有名字相同的，返回-1
         return -1;
     }
 
@@ -201,7 +195,7 @@ public final class Analyser {
         while(check(TokenType.FN_KW)){
 
 
-//            allInstructions.addAll(instructions);
+//          allInstructions.addAll(instructions);
             //指令集更新
             instructions = new ArrayList<>();
             localVCount = 0;
@@ -222,8 +216,10 @@ public final class Analyser {
 
             expect(TokenType.ARROW);
             String returnType =analyseTy();
-            symbol.setParams(params);symbol.setReturnType(returnType);
             analFunction = symbol;
+            symbol.setParams(params);symbol.setReturnType(returnType);
+            analFunction.setParams(params);analFunction.setReturnType(returnType);
+
 
             //判断返回类型
             int retType;
@@ -241,16 +237,11 @@ public final class Analyser {
             function.setInstructions(instructions);
             function.setFloor(floor);
 
-            //验证当前函数是否有return语句
-            //如果当前函数返回void，则可以没有return语句
-            //即判断上一个return的函数和当前函数是否一致
-            //不一致则报错
             if(symbol.getReturnType().equals("void"))
                 instructions.add(new Instruction("ret", null));
             else if(!retFunction.getName().equals(analFunction.getName())){
                 throw new Exception();
             }
-
 
             //将函数插入全局变量表
             Global global = new Global(true, identName.length(), identName);
