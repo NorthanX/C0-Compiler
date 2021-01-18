@@ -12,6 +12,7 @@ public class App {
         String x = "start!";
         System.out.println(x);
         try{
+            //读入并开始
 //            InputStream input = new FileInputStream("input.txt");
             InputStream input = new FileInputStream(args[0]);
             Scanner scanner = new Scanner(input);
@@ -20,6 +21,7 @@ public class App {
             Analyser analyser = new Analyser(tokenizer);
             analyser.startAnalyse();
 
+            //debug测试
             System.out.println("全局符号表大小："+analyser.getGlobalTable().size());
             System.out.println("全局符号表：");
             for (Global global : analyser.getGlobalTable()) {
@@ -34,15 +36,15 @@ public class App {
             //输出格式转换
             Output out = new Output(analyser.getGlobalTable(), analyser.getFunctionTable(), analyser.get_start());
             List<Byte> bytes = out.transfer();
-            byte[] intermediate = new byte[bytes.size()];
+            byte[] result = new byte[bytes.size()];
             for (int i = 0; i < bytes.size(); ++i) {
-                intermediate[i] = bytes.get(i);
+                result[i] = bytes.get(i);
             }
 
             //输出
 //            DataOutputStream output = new DataOutputStream(new FileOutputStream(new File("output.txt")));
             DataOutputStream output = new DataOutputStream(new FileOutputStream(new File(args[1])));
-            output.write(intermediate);
+            output.write(result);
         }
         catch (Exception e){
             exit(1);

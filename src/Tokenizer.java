@@ -177,14 +177,6 @@ public class Tokenizer {
             return new Token(TokenType.MUL, '*', iterator.previousPos(), iterator.currentPos());
         }
         else if (now == '/'){
-            if(iterator.peekChar() == '/'){
-                iterator.nextChar();
-                    char nextChar = iterator.nextChar();
-                while (nextChar != '\n') {
-                    nextChar = iterator.nextChar();
-                }
-                return nextToken();
-            }
             return new Token(TokenType.DIV, '/', iterator.previousPos(), iterator.currentPos());
         }
         else if (now == '='){

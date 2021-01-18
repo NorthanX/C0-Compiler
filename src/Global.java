@@ -1,6 +1,6 @@
 public class Global {
     boolean isConst;
-    int length;
+    int count;
     String items;
 
     public boolean getIsConst() {
@@ -11,12 +11,12 @@ public class Global {
         this.isConst = isConst;
     }
 
-    public int getLength() {
-        return length;
+    public int getCount() {
+        return count;
     }
 
-    public void setLength(int length) {
-        this.length = length;
+    public void setCount(int count) {
+        this.count = count;
     }
 
     public String getItems() {
@@ -27,15 +27,15 @@ public class Global {
         this.items = items;
     }
 
-    public Global(boolean isConst, int length, String items) {
+    public Global(boolean isConst, int count, String items) {
         this.isConst = isConst;
-        this.length = length;
+        this.count = count;
         this.items = items;
     }
 
     public Global(boolean isConst) {
         this.isConst = isConst;
-        this.length = 0;
+        this.count = 0;
         this.items = null;
     }
 
@@ -43,7 +43,7 @@ public class Global {
     public String toString() {
         return "Global{" +
                 "isConst=" + isConst +
-                ",\n count=" + length +
+                ",\n count=" + count +
                 ",\n items='" + items + '\'' +
                 '}';
     }

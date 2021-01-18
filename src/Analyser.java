@@ -122,15 +122,19 @@ public final class Analyser {
         //判断在符号表里有没有与当前符号相同的名字
         int symbol1 = searchSymbolNum(String.valueOf(token.getValue()));
         //如果没有一样的名字
-        if (symbol1 != -1) {
+        if(symbol1 == -1){
+            this.symbolTable.add(symbol);
+        }
+        //如果有相同名字
+        else{
             //获取进行比较
             symbol = symbolTable.get(symbol1);
             //如果他们层数一样，则冲突
-            if (symbol.getFloor() == floor)
+            if(symbol.getFloor() == floor)
                 throw new Exception();
             //如果层数不一样则加入符号表
+            this.symbolTable.add(symbol);
         }
-        this.symbolTable.add(symbol);
         return symbolTable.get(symbolTable.size()-1);
     }
 
@@ -266,17 +270,17 @@ public final class Analyser {
     private void analyseBlock_Stmt() throws Exception{
         floor++;
         expect(TokenType.L_BRACE);
-        analyseStmt();
+        analysStmt();
         expect(TokenType.R_BRACE);
 
-        int num = symbolTable.size()-1;
+        int i = symbolTable.size()-1;
         while (true){
-            int floorX = symbolTable.get(num).getFloor();
+            int floorX = symbolTable.get(i).getFloor();
             if (floorX!=floor){
                 break;
             }
-            symbolTable.remove(num);
-            num--;
+            symbolTable.remove(i);
+            i--;
         }
 
         floor--;
@@ -293,7 +297,7 @@ public final class Analyser {
      *     | empty_stmt
      * @throws Exception
      */
-    private void analyseStmt() throws Exception {
+    private void analysStmt() throws Exception {
         while (!check(TokenType.R_BRACE)){
             if (check(TokenType.LET_KW) || check(TokenType.CONST_KW)){
                 analyseDecl_Stmt();
@@ -377,11 +381,14 @@ public final class Analyser {
 
         //弹栈
         while (!op.empty())
-            operatorInstructions(op.pop(), instructions, funcType);
+            MyFunctions.operatorInstructions(op.pop(), instructions, funcType);
 
+        //如果前面的计算值非0则跳转
         instructions.add(new Instruction("br.true", 1));
+        //无条件跳转
         Instruction jump = new Instruction("br", 0);
         instructions.add(jump);
+        //当前指令位置
         int index = instructions.size();
 
         analyseBlock_Stmt();
@@ -403,9 +410,10 @@ public final class Analyser {
         else {
             Instruction jump1 = new Instruction("br", null);
             instructions.add(jump1);
-            int index1 = instructions.size();
+            int j = instructions.size();
 
-            jump.setX(index1 - index);
+            int distance = j - index;
+            jump.setX(distance);
 
             if(check(TokenType.ELSE_KW)){
                 expect(TokenType.ELSE_KW);
@@ -416,7 +424,8 @@ public final class Analyser {
                 else if(check(TokenType.IF_KW))
                     analyseIf_Stmt();
             }
-            jump1.setX(instructions.size() - index1);
+            distance = instructions.size() - j;
+            jump1.setX(distance);
         }
 
 
@@ -432,14 +441,14 @@ public final class Analyser {
         instructions.add(new Instruction("br", 0));
         int whileStart = instructions.size();
 
-        String funcType = analyseExpr();
+        String type = analyseExpr();
         //返回类型必须是int
-        if(funcType.equals("void"))
+        if(type.equals("void"))
             throw new Exception();
 
         //弹栈
         while (!op.empty())
-            operatorInstructions(op.pop(), instructions, funcType);
+            MyFunctions.operatorInstructions(op.pop(), instructions, type);
 
         instructions.add(new Instruction("br.true", 1));
         Instruction jump = new Instruction("br", 0);
@@ -449,6 +458,7 @@ public final class Analyser {
         circulateLayer++;
         analyseBlock_Stmt();
 
+        //跳回while 判断语句
         Instruction instruction = new Instruction("br", 0);
         instructions.add(instruction);
 
@@ -469,10 +479,12 @@ public final class Analyser {
 
         //如果返回类型是int
         if(analFunction.getReturnType().equals("int")){
+            //加载返回地址
             instructions.add(new Instruction("arga", 0));
+
             type = analyseExpr();
             while (!op.empty())
-                operatorInstructions(op.pop(), instructions, type);
+                MyFunctions.operatorInstructions(op.pop(), instructions, type);
 
             instructions.add(new Instruction("store.64", null));
         }
@@ -482,7 +494,9 @@ public final class Analyser {
         if(!check(TokenType.SEMICOLON))
             type = analyseExpr();
 
-        //判断返回类型是否正确
+        //判断返回类型和函数的应有返回类型是否一致
+        //一致则返回
+        //不一致则报错
         if(!type.equals(analFunction.getReturnType()))
             throw new Exception();
 
@@ -490,7 +504,8 @@ public final class Analyser {
         retFunction = analFunction;
 
         while (!op.empty())
-            operatorInstructions(op.pop(), instructions, type);
+            MyFunctions.operatorInstructions(op.pop(), instructions, type);
+        //ret
         instructions.add(new Instruction("ret", null));
     }
 
@@ -504,8 +519,9 @@ public final class Analyser {
      */
     private void analyseExpr_Stmt() throws Exception{
         String exprType = analyseExpr();
+        //弹栈
         while (!op.empty())
-            operatorInstructions(op.pop(), instructions, exprType);
+            MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
         expect(TokenType.SEMICOLON);
     }
 
@@ -522,25 +538,29 @@ public final class Analyser {
      * @throws Exception
      */
     private String analyseExpr() throws Exception{
+        //当前表达式的类型
         String exprType = "";
         boolean isLibrary;
 
+        //取反表达式处理
         //negate_expr -> '-' expr
         if(check(TokenType.MINUS))
             exprType = analyseNegate_Expr();
 
-        //首位是标识符,可能是assign_expr，call_expr，ident_expr
+            //首位是标识符,可能是assign_expr，call_expr，ident_expr
         else if(check(TokenType.IDENT)){
 
             Token ident = expect(TokenType.IDENT);
             Symbol symbol = searchSymbol(ident);
 
             isLibrary = false;
+            //如果符号表里没有该ident
             if(symbol == null){
                 if((symbol = analyseLibrary(String.valueOf(ident.getValue()))) == null)
                     throw new Exception();
                 isLibrary = true;
             }
+
             //assign_expr -> l_expr '=' expr
             //l_expr -> IDENT
             if(check(TokenType.ASSIGN))
@@ -566,6 +586,8 @@ public final class Analyser {
         else if(check(TokenType.L_PAREN))
             exprType = analyseGroupExpr();
 
+        //类型转换表达式，运算符表达式
+        //如果依旧有expr
         while(check(TokenType.AS_KW) ||
                 check(TokenType.PLUS)||
                 check(TokenType.MINUS)||
@@ -577,13 +599,14 @@ public final class Analyser {
                 check(TokenType.GT)||
                 check(TokenType.LE)||
                 check(TokenType.GE)){
+            //类型转换表达式
             //as_expr -> expr 'as' ty
             //暂时不管吧
             if(check(TokenType.AS_KW))
                 exprType = analyseAs_Expr(exprType);
 
-            //运算符表达式
-            //operator_expr -> expr binary_operator expr
+                //运算符表达式
+                //operator_expr -> expr binary_operator expr
             else
                 exprType = analyseOperator_Expr(exprType);
         }
@@ -603,7 +626,7 @@ public final class Analyser {
      */
     private String analyseAs_Expr(String exprType) throws Exception {
         expect(TokenType.AS_KW);
-        String rightType =  "";
+        String rightType =  analyseTy();
         if(exprType.equals(rightType)){
             return exprType;
         }
@@ -661,40 +684,37 @@ public final class Analyser {
             return null;
     }
 
-    /**
-     * l_expr -> IDENT
-     * assign_expr -> l_expr '=' expr
-     * @param l_Symbol
-     * @return
-     * @throws Exception
-     */
     private String analyseAssign_Expr(Symbol l_Symbol) throws Exception{
-
+        //常量肯定是不行的
         if (l_Symbol.isConst())
             throw new Exception();
 
-        //函数
+        //如果lident是函数参数
         if (l_Symbol.getParamPos() != -1) {
+            //获取该参数的函数
             Symbol func = l_Symbol.getFunction();
 
+            //参数存在ret_slots后面
             if (func.getReturnType().equals("void"))
                 throw new Exception();
-            instructions.add(new Instruction("arga", l_Symbol.getParamPos()+1));
+            instructions.add(new Instruction("arga", 1+l_Symbol.getParamPos()));
         }
-        //全局
-        else if(l_Symbol.getFloor() == 0) {
-            instructions.add(new Instruction("globa", l_Symbol.getLocalID()));
+        //如果该ident是局部变量
+        else if(l_Symbol.getFloor() != 0) {
+            instructions.add(new Instruction("loca", l_Symbol.getLocalID()));
         }
-        //局部
+        //如果该ident是全局变量
         else {
-            instructions.add(new Instruction("loca", l_Symbol.getGlobalID()));
+            instructions.add(new Instruction("globa", l_Symbol.getGlobalID()));
         }
 
         expect(TokenType.ASSIGN);
         String exprType = analyseExpr();
+        //弹栈
         while (!op.empty())
-            operatorInstructions(op.pop(), instructions, exprType);
+            MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
 
+        //设置该符号为已赋值
         if (!l_Symbol.getType().equals(exprType)){
             throw new Exception();
         }
@@ -703,14 +723,6 @@ public final class Analyser {
         return "void";
     }
 
-    /**
-     * call_param_list -> expr (',' expr)*
-     * call_expr -> IDENT '(' call_param_list? ')'
-     * @param symbol
-     * @param isLibrary
-     * @return
-     * @throws Exception
-     */
     private String analyseCall_Expr(Symbol symbol, boolean isLibrary) throws Exception{
         Instruction instruction;
 
@@ -723,15 +735,17 @@ public final class Analyser {
         else{
             if(!symbol.getType().equals("function"))
                 throw new Exception();
-            int id = getFunctionId(symbol.getName(), functionTable);
+            //如果是函数
+            int id = MyFunctions.getFunctionId(symbol.getName(), functionTable);
             instruction = new Instruction("call", id + 1);
         }
 
         String name = symbol.getName();
         expect(TokenType.L_PAREN);
+        //将左括号入运算符栈
         op.push(TokenType.L_PAREN);
 
-        if (functionHasReturn(name, functionTable))
+        if (MyFunctions.functionHasReturn(name, functionTable))
             instructions.add(new Instruction("stackalloc", 1));
         else
             instructions.add(new Instruction("stackalloc", 0));
@@ -739,12 +753,14 @@ public final class Analyser {
         if(!check(TokenType.R_PAREN)){
             analyseCall_Param_List(symbol);
         }
-        op.pop();
-        if (check(TokenType.R_PAREN)){
-            expect(TokenType.R_PAREN);
-            instructions.add(instruction);
-        }
+        expect(TokenType.R_PAREN);
 
+        //弹出左括号
+        op.pop();
+
+        //此时再将call语句压入
+        instructions.add(instruction);
+        //返回函数的返回类型
         return symbol.getReturnType();
     }
 
@@ -760,7 +776,7 @@ public final class Analyser {
         //如果对应位置的参数类型不匹配，则报错
         String type = analyseExpr();
         while (!op.empty() && op.peek() != TokenType.L_PAREN)
-            operatorInstructions(op.pop(), instructions, type);
+            MyFunctions.operatorInstructions(op.pop(), instructions, type);
 
 //        for (i = 0; i<paramNum; i++){
 //            if(!params.get(i).getType().equals(type))
@@ -774,7 +790,7 @@ public final class Analyser {
             //如果对应位置的参数类型不匹配，则报错
             type = analyseExpr();
             while (!op.empty() && op.peek() != TokenType.L_PAREN)
-                operatorInstructions(op.pop(), instructions, type);
+                MyFunctions.operatorInstructions(op.pop(), instructions, type);
             i++;
         }
         //如果参数个数不匹配，则报错
@@ -782,25 +798,16 @@ public final class Analyser {
             throw new Exception();
     }
 
-    /**
-     * literal_expr -> UINT_LITERAL | DOUBLE_LITERAL | STRING_LITERAL
-     * UINT_LITERAL -> digit+
-     * digit -> [0-9]
-     * STRING_LITERAL -> '"' (string_regular_char | escape_sequence)* '"'
-     * escape_sequence -> '\' [\\"'nrt]
-     * string_regular_char -> [^"\\]
-     * @return
-     * @throws Exception
-     */
     private String analyseLiteralExpr() throws Exception{
         if(check(TokenType.UINT_LITERAL)){
             Token token = next();
-            instructions.add(new Instruction("push", Integer.parseInt(token.getValue().toString())));
+            instructions.add(new Instruction("push", (Integer) token.getValue()));
             return "int";
         }
         else if(check(TokenType.STRING_LITERAL)){
             Token token = next();
-            String name = String.valueOf(token.getValue());
+            String name = (String) token.getValue();
+            //加入全局符号表
             globalTable.add(new Global(true, name.length(), name));
 
             instructions.add(new Instruction("push", globalVCount));
@@ -811,22 +818,20 @@ public final class Analyser {
             throw new Exception();
     }
 
-    /**
-     * group_expr -> '(' expr ')'
-     * @return
-     * @throws Exception
-     */
     private String analyseGroupExpr() throws Exception{
         expect(TokenType.L_PAREN);
         op.push(TokenType.L_PAREN);
         String exprType = analyseExpr();
         expect(TokenType.R_PAREN);
 
-        while (!op.empty() && op.peek() != TokenType.L_PAREN)
-            operatorInstructions(op.pop(), instructions, exprType);
+        //弹栈
+        while (op.peek() != TokenType.L_PAREN)
+            MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
 
+        //弹出左括号
         op.pop();
         return exprType;
+
     }
 
     private Symbol searchSymbol(Token ident) {
@@ -865,17 +870,20 @@ public final class Analyser {
             throw new Exception();
 
         if (symbol.getParamPos() != -1) {
+            //获取该参数的函数
             Symbol func = symbol.getFunction();
+            //参数存在ret_slots后面
             if (func.getReturnType().equals("void"))
                 instructions.add(new Instruction("arga", symbol.getParamPos()));
             else
                 instructions.add(new Instruction("arga", symbol.getParamPos()+1));
         }
-        else if(symbol.getFloor() == 0) {
-            instructions.add(new Instruction("globa", symbol.getLocalID()));
+        else if(symbol.getFloor() != 0) {
+            instructions.add(new Instruction("loca", symbol.getLocalID()));
         }
+        //如果该ident是全局变量
         else {
-            instructions.add(new Instruction("loca", symbol.getGlobalID()));
+            instructions.add(new Instruction("globa", symbol.getGlobalID()));
         }
         instructions.add(new Instruction("load.64", null));
         return symbol.getType();
@@ -910,12 +918,15 @@ public final class Analyser {
         //比较终结符优先级，判断要不要计算
         //如果栈内终结符优先级高，则弹出该终结符，并计算
         if (!op.empty()) {
-            if (Operator.priority[Operator.getOrder(op.peek())][Operator.getOrder(token.getTokenType())] > 0)
-                operatorInstructions(op.pop(), instructions, exprType);
+            int in = Operator.getOrder(op.peek());
+            int out = Operator.getOrder(token.getTokenType());
+            if (Operator.priority[in][out] > 0)
+                MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
         }
         op.push(token.getTokenType());
 
         String type =  analyseExpr();
+        //如果运算符左右两侧类型一致，且为double或int
         if(exprType.equals(type) && exprType.equals("int"))
             return type;
         else
@@ -982,8 +993,9 @@ public final class Analyser {
 
             exprType = analyseExpr();
 
+            //将运算符弹栈并计算
             while (!op.empty())
-                operatorInstructions(op.pop(), instructions, exprType);
+                MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
 
             //将值存入
             instruction = new Instruction("store.64", null);
@@ -1044,8 +1056,9 @@ public final class Analyser {
         expect(TokenType.ASSIGN);
 
         exprType = analyseExpr();
+        //将运算符弹栈并计算
         while (!op.empty())
-            operatorInstructions(op.pop(), instructions, exprType);
+            MyFunctions.operatorInstructions(op.pop(), instructions, exprType);
 
         //将值存入
         instruction = new Instruction("store.64", null);
@@ -1093,98 +1106,6 @@ public final class Analyser {
         if (searchSymbolNumByName(name) == -1)
             throw new Exception();
         symbolTable.get(searchSymbolNumByName(name)).setInitialized(true);
-    }
-
-    public boolean functionHasReturn(String name, List<Function> functionTable) {
-        //如果是库函数
-        if (name.equals("getint") || name.equals("getdouble") || name.equals("getchar"))
-            return true;
-        //如果是自定义函数
-        for (Function function : functionTable) {
-            if (function.getName().equals(name)) {
-                if (function.getRetType() == 1) return true;
-            }
-        }
-        return false;
-    }
-
-    public int getFunctionId(String name, List<Function> functionTable){
-//        for (int i=0 ; i<functionTable.size(); i++) {
-//            if (functionTable.get(i).getName().equals(name)) return i;
-//        }
-//        return -1;
-        for (Function function : functionTable) {
-            if (function.getName().equals(name)) return function.getId();
-        }
-        return -1;
-    }
-
-    public void operatorInstructions(TokenType calculate, List<Instruction> instructions, String type) throws Exception{
-        Instruction instruction;
-        if (calculate == TokenType.PLUS) {
-            if (type.equals("int"))
-                instruction = new Instruction("add.i", null);
-            else
-                throw new Exception();
-            instructions.add(instruction);
-        } else if (calculate == TokenType.MINUS) {
-            if (type.equals("int"))
-                instruction = new Instruction("sub.i", null);
-            else
-                throw new Exception();
-            instructions.add(instruction);
-        } else if (calculate == TokenType.MUL) {
-            if (type.equals("int"))
-                instruction = new Instruction("mul.i", null);
-            else
-                throw new Exception();
-            instructions.add(instruction);
-        } else if (calculate == TokenType.DIV) {
-            if (type.equals("int"))
-                instruction = new Instruction("div.i", null);
-            else
-                throw new Exception();
-            instructions.add(instruction);
-        } else if (calculate == TokenType.EQ) {
-            if (type.equals("int"))
-                instruction = new Instruction("cmp.i", null);
-            else
-                throw new Exception();
-            instructions.add(instruction);
-
-            instructions.add(new Instruction("not", null));
-        } else if (calculate == TokenType.NEQ) {
-            if (type.equals("int"))
-                instruction = new Instruction("cmp.i", null);
-            else
-                throw new Exception();
-            instructions.add(instruction);
-        } else if (calculate == TokenType.LT) {
-            if (type.equals("int"))
-                instruction = new Instruction("cmp.i", null);
-            else
-                throw new Exception();
-            instructions.add(instruction);
-
-            instruction = new Instruction("set.lt", null);
-            instructions.add(instruction);
-        } else if (calculate == TokenType.GT || calculate == TokenType.LE || calculate == TokenType.GE) {
-            if (type.equals("int"))
-                instruction = new Instruction("cmp.i", null);
-            else
-                throw new Exception();
-            instructions.add(instruction);
-
-            instruction = new Instruction("set.gt", null);
-            instructions.add(instruction);
-            if (calculate == TokenType.LE) {
-                instructions.add(new Instruction("set.gt", null));
-                instructions.add(new Instruction("not", null));
-            } else if (calculate == TokenType.GE) {
-                instructions.add(new Instruction("set.lt", null));
-                instructions.add(new Instruction("not", null));
-            }
-        }
     }
 
     public Function get_start() {
