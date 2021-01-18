@@ -371,8 +371,7 @@ public final class Analyser {
         if(funcType.equals("void"))
             throw new Exception();
 
-        while (!op.empty())
-            operatorInstructions(op.pop(), instructions, funcType);
+        infiniteOperatorInstructions(funcType);
 
         //如果前面的计算值非0则跳转
         instructions.add(new Instruction("br.true", 1));
@@ -436,9 +435,7 @@ public final class Analyser {
         if(funcType.equals("void"))
             throw new Exception();
 
-        //弹栈
-        while (!op.empty())
-            operatorInstructions(op.pop(), instructions, funcType);
+        infiniteOperatorInstructions(funcType);
 
         instructions.add(new Instruction("br.true", 1));
         Instruction jump = new Instruction("br", 0);
@@ -494,8 +491,7 @@ public final class Analyser {
         expect(TokenType.SEMICOLON);
         retFunction = analFunction;
 
-        while (!op.empty())
-            operatorInstructions(op.pop(), instructions, type);
+        infiniteOperatorInstructions(type);
         instructions.add(new Instruction("ret", null));
     }
 
@@ -510,8 +506,7 @@ public final class Analyser {
     private void analyseExpr_Stmt() throws Exception{
         String exprType = analyseExpr();
         //弹栈
-        while (!op.empty())
-            operatorInstructions(op.pop(), instructions, exprType);
+        infiniteOperatorInstructions(exprType);
         expect(TokenType.SEMICOLON);
     }
 
@@ -684,20 +679,16 @@ public final class Analyser {
                 throw new Exception();
             instructions.add(new Instruction("arga", l_Symbol.getParamPos()+1));
         }
-        //如果该ident是局部变量
         else if(l_Symbol.getFloor() != 0) {
             instructions.add(new Instruction("loca", l_Symbol.getLocalID()));
         }
-        //如果该ident是全局变量
         else {
             instructions.add(new Instruction("globa", l_Symbol.getGlobalID()));
         }
 
         expect(TokenType.ASSIGN);
         String exprType = analyseExpr();
-        //弹栈
-        while (!op.empty())
-            operatorInstructions(op.pop(), instructions, exprType);
+        infiniteOperatorInstructions(exprType);
 
         //设置该符号为已赋值
         if (!l_Symbol.getType().equals(exprType)){
@@ -979,8 +970,7 @@ public final class Analyser {
             exprType = analyseExpr();
 
             //将运算符弹栈并计算
-            while (!op.empty())
-                operatorInstructions(op.pop(), instructions, exprType);
+            infiniteOperatorInstructions(exprType);
 
             //将值存入
             instruction = new Instruction("store.64", null);
@@ -1041,9 +1031,7 @@ public final class Analyser {
         expect(TokenType.ASSIGN);
 
         exprType = analyseExpr();
-        //将运算符弹栈并计算
-        while (!op.empty())
-            operatorInstructions(op.pop(), instructions, exprType);
+        infiniteOperatorInstructions(exprType);
 
         //将值存入
         instruction = new Instruction("store.64", null);
@@ -1239,6 +1227,11 @@ public final class Analyser {
                 break;
         }
 
+    }
+
+    public void infiniteOperatorInstructions(String type) throws Exception {
+        while (!op.empty())
+            operatorInstructions(op.pop(), instructions, type);
     }
 
     public Function get_start() {
