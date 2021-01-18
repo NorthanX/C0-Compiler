@@ -396,10 +396,10 @@ public final class Analyser {
         else {
             Instruction jump1 = new Instruction("br", null);
             instructions.add(jump1);
-            int j = instructions.size();
+            int index1 = instructions.size();
 
             int distance;
-            jump.setX(j - index);
+            jump.setX(index1 - index);
 
             if(check(TokenType.ELSE_KW)){
                 expect(TokenType.ELSE_KW);
@@ -410,12 +410,16 @@ public final class Analyser {
                 else if(check(TokenType.IF_KW))
                     analyseIf_Stmt();
             }
-            distance = instructions.size() - j;
-            jump1.setX(instructions.size() - j);
-            jump1.setX(distance);
+            setJump1(index1,jump1);
         }
 
 
+    }
+
+    public void setJump1(int index1, Instruction jump1){
+        int distance = instructions.size() - index1;
+        jump1.setX(instructions.size() - index1);
+        jump1.setX(distance);
     }
 
     public Instruction jumpAdd(){
