@@ -374,9 +374,7 @@ public final class Analyser {
         infiniteOperatorInstructions(funcType);
 
         //如果前面的计算值非0则跳转
-        instructions.add(new Instruction("br.true", 1));
-        Instruction jump = new Instruction("br", 0);
-        instructions.add(jump);
+        Instruction jump = jumpAdd();
         int index = instructions.size();
 
         analyseBlock_Stmt();
@@ -420,6 +418,14 @@ public final class Analyser {
 
     }
 
+    public Instruction jumpAdd(){
+        //如果前面的计算值非0则跳转
+        instructions.add(new Instruction("br.true", 1));
+        Instruction jump = new Instruction("br", 0);
+        instructions.add(jump);
+        return jump;
+    }
+
     /**
      * while_stmt -> 'while' expr block_stmt
      * @throws Exception
@@ -437,9 +443,7 @@ public final class Analyser {
 
         infiniteOperatorInstructions(funcType);
 
-        instructions.add(new Instruction("br.true", 1));
-        Instruction jump = new Instruction("br", 0);
-        instructions.add(jump);
+        Instruction jump = jumpAdd();
         int index = instructions.size();
 
         circulateLayer++;
