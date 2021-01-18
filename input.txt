@@ -1,7 +1,2 @@
-<<<<<<< HEAD
-let a : int = 1;
-=======
-let a0 : int;
-fn testParam8 ( a0 : int , a1 : int) -> void {return;}
->>>>>>> parent of 257f271 (目录结构变更)
-fn main ( ) -> void { putstr(1);}
+fn main ( ) //fdsifdf
+-> void{return;}

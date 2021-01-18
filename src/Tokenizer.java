@@ -183,6 +183,7 @@ public class Tokenizer {
                 while (nextChar != '\n') {
                     nextChar = iterator.nextChar();
                 }
+                return nextToken();
             }
             return new Token(TokenType.DIV, '/', iterator.previousPos(), iterator.currentPos());
         }
