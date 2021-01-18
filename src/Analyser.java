@@ -782,7 +782,7 @@ public final class Analyser {
         }
         else if(check(TokenType.STRING_LITERAL)){
             Token token = next();
-            String name = (String) token.getValue();
+            String name = String.valueOf(token.getValue());
             //加入全局符号表
             globalTable.add(new Global(true, name.length(), name));
 
