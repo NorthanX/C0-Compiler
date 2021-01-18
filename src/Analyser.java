@@ -349,6 +349,7 @@ public final class Analyser {
         else isConst = false;
 
         ident = expect(TokenType.IDENT);
+        check(TokenType.COLON);
         expect(TokenType.COLON);
         type = analyseTy();
 
@@ -370,16 +371,13 @@ public final class Analyser {
         if(funcType.equals("void"))
             throw new Exception();
 
-        //弹栈
         while (!op.empty())
             operatorInstructions(op.pop(), instructions, funcType);
 
         //如果前面的计算值非0则跳转
         instructions.add(new Instruction("br.true", 1));
-        //无条件跳转
         Instruction jump = new Instruction("br", 0);
         instructions.add(jump);
-        //当前指令位置
         int index = instructions.size();
 
         analyseBlock_Stmt();
@@ -403,8 +401,8 @@ public final class Analyser {
             instructions.add(jump1);
             int j = instructions.size();
 
-            int distance = j - index;
-            jump.setX(distance);
+            int distance;
+            jump.setX(j - index);
 
             if(check(TokenType.ELSE_KW)){
                 expect(TokenType.ELSE_KW);
@@ -416,6 +414,7 @@ public final class Analyser {
                     analyseIf_Stmt();
             }
             distance = instructions.size() - j;
+            jump1.setX(instructions.size() - j);
             jump1.setX(distance);
         }
 
@@ -432,14 +431,14 @@ public final class Analyser {
         instructions.add(new Instruction("br", 0));
         int whileStart = instructions.size();
 
-        String type = analyseExpr();
+        String funcType = analyseExpr();
         //返回类型必须是int
-        if(type.equals("void"))
+        if(funcType.equals("void"))
             throw new Exception();
 
         //弹栈
         while (!op.empty())
-            operatorInstructions(op.pop(), instructions, type);
+            operatorInstructions(op.pop(), instructions, funcType);
 
         instructions.add(new Instruction("br.true", 1));
         Instruction jump = new Instruction("br", 0);
@@ -453,9 +452,9 @@ public final class Analyser {
         Instruction instruction = new Instruction("br", 0);
         instructions.add(instruction);
 
-        int whileEnd = instructions.size();
-        jump.setX(whileEnd - index);
-        instruction.setX(whileStart - whileEnd);
+        jump.setX(instructions.size() - index);
+        instruction.setX(whileStart - instructions.size());
+
         if(circulateLayer > 0)
             circulateLayer--;
     }
@@ -466,6 +465,7 @@ public final class Analyser {
      */
     private void analyseReturnStmt() throws Exception{
         String type;
+        int count = 0;
         expect(TokenType.RETURN_KW);
 
         //如果返回类型是int
@@ -474,8 +474,12 @@ public final class Analyser {
             instructions.add(new Instruction("arga", 0));
 
             type = analyseExpr();
-            while (!op.empty())
+            while (!op.empty()){
                 operatorInstructions(op.pop(), instructions, type);
+                count++;
+                if (count<=0) System.out.println(count);;
+            }
+
 
             instructions.add(new Instruction("store.64", null));
         }
