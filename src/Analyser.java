@@ -777,7 +777,7 @@ public final class Analyser {
     private String analyseLiteralExpr() throws Exception{
         if(check(TokenType.UINT_LITERAL)){
             Token token = next();
-            instructions.add(new Instruction("push", (Integer) token.getValue()));
+            instructions.add(new Instruction("push", Integer.parseInt(token.getValue().toString())));
             return "int";
         }
         else if(check(TokenType.STRING_LITERAL)){

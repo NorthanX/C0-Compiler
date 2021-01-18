@@ -1,2 +1,1 @@
-fn main ( ) //fdsifdf
--> void{return;}
+fn main ( ) -> void { putstr (1);}
