@@ -480,7 +480,6 @@ public final class Analyser {
                 if (count<=0) System.out.println(count);;
             }
 
-
             instructions.add(new Instruction("store.64", null));
         }
         else
@@ -489,9 +488,6 @@ public final class Analyser {
         if(!check(TokenType.SEMICOLON))
             type = analyseExpr();
 
-        //判断返回类型和函数的应有返回类型是否一致
-        //一致则返回
-        //不一致则报错
         if(!type.equals(analFunction.getReturnType()))
             throw new Exception();
 
@@ -500,7 +496,6 @@ public final class Analyser {
 
         while (!op.empty())
             operatorInstructions(op.pop(), instructions, type);
-        //ret
         instructions.add(new Instruction("ret", null));
     }
 
@@ -581,8 +576,6 @@ public final class Analyser {
         else if(check(TokenType.L_PAREN))
             exprType = analyseGroupExpr();
 
-        //类型转换表达式，运算符表达式
-        //如果依旧有expr
         while(check(TokenType.AS_KW) ||
                 check(TokenType.PLUS)||
                 check(TokenType.MINUS)||
@@ -605,10 +598,8 @@ public final class Analyser {
             else
                 exprType = analyseOperator_Expr(exprType);
         }
-        //如果成功给表达式赋了类型，则说明上面至少有表达式成立
         if(exprType.equals(""))
             throw new Exception();
-            //根本不符合表达式语句
         return exprType;
 
     }
@@ -621,12 +612,11 @@ public final class Analyser {
      */
     private String analyseAs_Expr(String exprType) throws Exception {
         expect(TokenType.AS_KW);
-        String rightType =  analyseTy();
+        String rightType = analyseTy();
         if(exprType.equals(rightType)){
             return exprType;
         }
-        else
-            throw new Exception();
+        throw new Exception();
     }
 
     private Symbol analyseLibrary(String name) throws Exception{
@@ -666,7 +656,7 @@ public final class Analyser {
         }
         else if(name.equals("putstr")){
             returnType = "void";
-            param.setType("string");
+            param.setType("int");
             params.add(param);
             //param = globalTable
             return new Symbol(name, false, "function", returnType, true, 0, floor, -1, params, null,  -1, -1);
@@ -692,7 +682,7 @@ public final class Analyser {
             //参数存在ret_slots后面
             if (func.getReturnType().equals("void"))
                 throw new Exception();
-            instructions.add(new Instruction("arga", 1+l_Symbol.getParamPos()));
+            instructions.add(new Instruction("arga", l_Symbol.getParamPos()+1));
         }
         //如果该ident是局部变量
         else if(l_Symbol.getFloor() != 0) {
